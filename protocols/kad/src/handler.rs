@@ -23,6 +23,10 @@ use std::{
     error, fmt, io,
     marker::PhantomData,
     pin::Pin,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
     task::{Context, Poll, Waker},
     time::Duration,
 };
@@ -91,6 +95,8 @@ pub struct Handler {
     protocol_status: Option<ProtocolStatus>,
 
     remote_supported_protocols: SupportedProtocols,
+
+    pending_put_records: Arc<AtomicUsize>,
 }
 
 /// The states of protocol confirmation that a connection
@@ -435,6 +441,7 @@ impl Handler {
         endpoint: ConnectedPoint,
         remote_peer_id: PeerId,
         mode: Mode,
+        pending_put_records: Arc<AtomicUsize>,
     ) -> Self {
         match &endpoint {
             ConnectedPoint::Dialer { .. } => {
@@ -468,6 +475,7 @@ impl Handler {
             pending_messages: Default::default(),
             protocol_status: None,
             remote_supported_protocols: Default::default(),
+            pending_put_records: pending_put_records.clone(),
         }
     }
 
@@ -685,6 +693,7 @@ impl ConnectionHandler for Handler {
                 value,
             } => {
                 self.answer_pending_request(request_id, KadResponseMsg::PutValue { key, value });
+                self.pending_put_records.fetch_sub(1, Ordering::Relaxed);
             }
             HandlerIn::ReconfigureMode { new_mode } => {
                 let peer = self.remote_peer_id;

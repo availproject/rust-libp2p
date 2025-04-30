@@ -26,6 +26,10 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet, VecDeque},
     fmt,
     num::NonZeroUsize,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
     task::{Context, Poll, Waker},
     time::Duration,
     vec,
@@ -123,6 +127,8 @@ pub struct Behaviour<TStore> {
 
     /// Tracks the status of the current bootstrap.
     bootstrap_status: bootstrap::Status,
+
+    pending_put_records: Arc<AtomicUsize>,
 }
 
 /// The configurable strategies for the insertion of peers
@@ -508,7 +514,12 @@ where
                 config.periodic_bootstrap_interval,
                 config.automatic_bootstrap_throttle,
             ),
+            pending_put_records: Default::default(),
         }
+    }
+
+    pub fn pending_put_records(&self) -> usize {
+        self.pending_put_records.load(Ordering::Relaxed)
     }
 
     /// Gets an iterator over immutable references to all running queries.
@@ -2196,6 +2207,7 @@ where
             connected_point,
             peer,
             self.mode,
+            self.pending_put_records.clone(),
         );
         self.preload_new_handler(&mut handler, connection_id, peer);
 
@@ -2221,6 +2233,7 @@ where
             connected_point,
             peer,
             self.mode,
+            self.pending_put_records.clone(),
         );
         self.preload_new_handler(&mut handler, connection_id, peer);
 
@@ -2496,6 +2509,7 @@ where
             }
 
             HandlerEvent::PutRecord { record, request_id } => {
+                self.pending_put_records.fetch_add(1, Ordering::Relaxed);
                 self.record_received(source, connection, request_id, record);
             }
 
