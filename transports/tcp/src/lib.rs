@@ -362,16 +362,10 @@ where
 
         let socket = self
             .config
-            .create_socket(socket_addr, opts.port_use)
+            .create_socket(socket_addr, PortUse::New)
             .map_err(TransportError::Other)?;
 
-        let bind_addr = match self.port_reuse.local_dial_addr(&socket_addr.ip()) {
-            Some(socket_addr) if opts.port_use == PortUse::Reuse => {
-                tracing::trace!(address=%addr, "Binding dial socket to listen socket address");
-                Some(socket_addr)
-            }
-            _ => None,
-        };
+        let bind_addr: Option<SocketAddr> = None;
 
         let local_config = self.config.clone();
 
