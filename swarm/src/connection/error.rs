@@ -137,7 +137,7 @@ where
 {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            PendingConnectionError::Transport(_) => None,
+            PendingConnectionError::Transport(err) => Some(err),
             PendingConnectionError::WrongPeerId { .. } => None,
             PendingConnectionError::LocalPeerId { .. } => None,
             PendingConnectionError::Aborted => None,
